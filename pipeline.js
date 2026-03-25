@@ -1,34 +1,59 @@
 import fs from 'fs';
 import csv from 'csv-parser';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 
-// .env file load karna
 dotenv.config();
 
 const filePath = process.env.CSV_FILE_PATH;
+const mongoURI = process.env.MONGO_URI;
 
-if (!filePath) {
-    console.error("Error: CSV_FILE_PATH not found in .env");
+if (!filePath || !mongoURI) {
+    console.error("❌ Error: CSV_FILE_PATH or MONGO_URI missing in .env");
     process.exit(1);
 }
 
-const processCSV = () => {
-    const results = [];
+// MongoDB Connection
+mongoose.connect(mongoURI)
+    .then(() => console.log('✅ Connected to MongoDB Atlas successfully!'))
+    .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-    fs.createReadStream(filePath)
-        .pipe(csv())
-        .on('data', (data) => {
-            // Yahan processing logic (e.g., cleaning data)
-            results.push(data);
-            console.log('Row:', data);
-        })
-        .on('end', () => {
-            console.log(`Successfully processed ${results.length} rows.`);
-            // Yahan aap database save logic call kar sakte hain
-        })
-        .on('error', (err) => {
-            console.error('Pipeline Error:', err.message);
-        });
+const User = mongoose.model('User', new mongoose.Schema({
+    id: String,
+    name: String,
+    email: String,
+    role: String
+}));
+
+
+const processCSV = async () => {
+    let rowCount = 0;
+    console.log("🚀 Starting Pipeline...\n");
+
+    const stream = fs.createReadStream(filePath).pipe(csv());
+
+    for await (const row of stream) {
+        try {
+            // Pehle Console mein Data dikhayega
+            console.log(`Row: { id: '${row.id}', name: '${row.name}', email: '${row.email}', role: '${row.role}' }`);
+            
+            // Phir Database mein save karega
+            await User.create(row);
+            console.log(`💾 Saved to DB: ${row.name}\n`);
+            
+            rowCount++;
+        } catch (err) {
+            console.error(`❌ Failed to save: ${row.name}`, err.message);
+        }
+    }
+
+    console.log(`-----------------------------------------`);
+    console.log(`✅ Success: Pipeline Finished.`);
+    console.log(`📊 Total ${rowCount} rows processed and saved to Atlas.`);
+    console.log(`-----------------------------------------`);
+    
+    // Process khatam hone par connection close (Optional)
+    // mongoose.connection.close();
 };
 
 processCSV();

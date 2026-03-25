@@ -1,0 +1,27 @@
+name: Docker Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/CSV-Pipeline
+            git pull origin main
+            # Docker commands (Server par update karne ke liye)
+            docker build -t csv-pipeline .
+            docker stop csv-app || true
+            docker rm csv-app || true
+            docker run -d --name csv-app --env-file .env csv-pipeline
