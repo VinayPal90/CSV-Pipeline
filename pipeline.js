@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 
 dotenv.config();
 
+// CI/CD Test
+
 const filePath = process.env.CSV_FILE_PATH;
 const mongoURI = process.env.MONGO_URI;
 
